@@ -1,56 +1,142 @@
-const f = (id) => parseFloat(document.getElementById(id).value) || 0;
+const $ = (id) => document.getElementById(id);
+const f = (id) => parseFloat($(id).value) || 0;
 const r0 = (n) => Math.round(n);
+const fmt = (n) => r0(n).toLocaleString('ru-RU');
 
-function calc() {
-  const area = f('area'), h = f('height'), hookahs = f('hookahs'), seats = f('seats');
-  const ach = f('ach'), perGuest = f('perGuest'), hood = f('hood'), coal = f('coal');
+const E_HOOKAH = 2.3;       // г CO/ч, Daher 2010 с выдохом
+const RHO_CP = 1.2 * 1.005; // кг/м3 * кДж/(кг*К)
 
-  const vol = area * h;
-  const byArea = vol * ach;
-  const bySeats = seats * perGuest;
-  const byHookah = hookahs * coal * 1000 / 4;
+const DOCS = [
+  { n: 'Приказ Минстроя РФ № 32/пр, Минздрава РФ № 33 от 30.01.2021',
+    reg: 'Минюст 14.05.2021 № 63434 · действует с 01.09.2021 · срок 6 лет',
+    url: 'https://docs.cntd.ru/document/603715060',
+    body: 'п. 5 «д»: курилка оборудуется приточно-вытяжной вентиляцией с механическим побуждением; п. 2: воздух должен соответствовать гигиеническим нормативам атмосферного воздуха по СанПиН 1.2.3685-21.',
+    why: 'Отсюда цель по CO: ПДКмр 5 мг/м³, а не ПДК рабочей зоны.' },
+  { n: 'СанПиН 1.2.3685-21',
+    reg: 'утв. ПП РФ № 2 от 28.01.2021 · действует',
+    url: 'https://docs.cntd.ru/document/573536177',
+    body: 'Табл. 1.1 (атмосферный воздух): CO — ПДКмр 5 мг/м³, ПДКсс 3 мг/м³; PM2.5 — ПДКсс 35 мкг/м³; формальдегид — 0,05 мг/м³.',
+    why: 'Числа, против которых проверяем воздух в зале.' },
+  { n: 'ФЗ-15 «Охрана здоровья граждан от воздействия табачного дыма» от 23.02.2013',
+    reg: 'действующая редакция · проверить на дату проекта',
+    url: 'https://docs.cntd.ru/document/499005825',
+    body: 'ч. 2 ст. 12: кальян — только в изолированном помещении, выделенном и оборудованном вентиляцией.',
+    why: 'Определяет, что кальянная зона — отдельный контур, а не часть зала.' },
+  { n: 'СП 60.13330.2020',
+    reg: 'утв. Приказ Минстроя № 282/пр от 30.12.2020 · с Изм. № 1',
+    url: 'https://docs.cntd.ru/document/1200180030',
+    body: 'Прил. Г, ф. Г.2 — расчёт расхода по массе вредных веществ; п. 7.10.14 — вытяжку курительных нельзя ставить в одном вентпомещении с приточной; табл. Л.1 — скорости в воздуховодах.',
+    why: 'Единственный законный способ вывести расход на кальян.' },
+  { n: 'СП 118.13330.2022',
+    reg: 'Приказ Минстроя № 389/пр от 19.05.2022 · Изм. 1–3 · введён 20.06.2022',
+    url: 'https://docs.cntd.ru/document/1200183038',
+    body: 'Кратности воздухообмена помещений общественных зданий — база для общего обмена. Для курительных заданной кратности нет.',
+    why: 'Даёт стартовую кратность для зала, не для точек курения.' },
+  { n: 'СП 51.13330.2011 «Защита от шума»',
+    reg: 'действует (с изменениями)',
+    url: 'https://docs.cntd.ru/document/1200084097',
+    body: 'Табл. 1 — допустимые уровни шума от инженерного оборудования в залах.',
+    why: 'Ограничение на скорость воздуха и подбор вентилятора.' },
+  { n: 'СП 73.13330.2016',
+    reg: 'действует',
+    url: 'https://docs.cntd.ru/document/456021375',
+    body: 'Испытания систем вентиляции: отклонение расхода от проектного более ±8% — система не принимается.',
+    why: 'Что измерить при пусконаладке.' },
+  { n: 'ГОСТ 34060-2017',
+    reg: 'действует',
+    url: 'https://docs.cntd.ru/document/1200145032',
+    body: 'Прил. А — форма паспорта системы вентиляции; прил. Б — форма акта приёмки после комплексной наладки.',
+    why: 'Документы, без которых объект не сдадут.' },
+  { n: 'Приказ Минстроя № 344/пр от 16.05.2023',
+    reg: 'действует · взамен РД-11-02-2006',
+    url: 'https://docs.cntd.ru/document/1300478136',
+    body: 'Состав и порядок ведения исполнительной документации.',
+    why: 'Какой комплект бумаг собирает прораб.' },
+  { n: 'СанПиН 2.3/2.4.3590-20',
+    reg: 'действует до 01.01.2027',
+    url: 'https://docs.cntd.ru/document/566276706',
+    body: 'п. 2.15 — предприятие общепита оборудуется исправными системами вентиляции.',
+    why: 'Требование к заведению целиком, не к точке курения.' }
+];
 
-  const supply = Math.max(byArea, bySeats, byHookah);
-  const local = hookahs * hood;
-  const total = Math.max(supply, local * 1.1);
-  const realAch = vol > 0 ? total / vol : 0;
-
-  document.getElementById('r1').textContent = r0(byArea) + ' м³/ч';
-  document.getElementById('r2').textContent = r0(bySeats) + ' м³/ч';
-  document.getElementById('r3').textContent = r0(byHookah) + ' м³/ч';
-  document.getElementById('rt').textContent = r0(supply) + ' м³/ч';
-  document.getElementById('r4').textContent = r0(local) + ' м³/ч';
-  document.getElementById('r5').textContent = r0(total) + ' м³/ч';
-  document.getElementById('r6').textContent = r0(total) + ' м³/ч';
-  document.getElementById('r7').textContent = realAch.toFixed(1).replace('.', ',') + ' 1/ч';
-
-  const n = document.getElementById('balance');
-  const acts = document.getElementById('actions');
-  acts.innerHTML = '';
-  let msg = '';
-  let warn = false;
-
-  if (local > supply) {
-    msg = 'Вытяжка от точек больше общего притока на ' + r0(local - supply) + ' м³/ч. Либо приток растёт, либо в зале будет разрежение и дверь не закроется.';
-    warn = true;
-    acts.insertAdjacentHTML('beforeend', '<li>Пересчитать приток до ' + r0(local * 1.1) + ' м³/ч или убрать часть решёток от точек.</li>');
-    acts.insertAdjacentHTML('beforeend', '<li>Проверить приток с соседних помещений — если его нет, зал «сосёт» воздух из кухни и туалетов.</li>');
-  } else {
-    msg = 'Баланс сходится: приток ' + r0(supply) + ' м³/ч покрывает вытяжку ' + r0(total) + ' м³/ч.';
-    acts.insertAdjacentHTML('beforeend', '<li>Проверить, проходит ли ' + r0(total) + ' м³/ч через существующие воздуховоды — диаметр и скорость.</li>');
-  }
-  if (realAch < 3) {
-    msg += ' Кратность ниже 3 — на зал с кальянами это мало, нужен отдельный контур на каждую точку.';
-    warn = true;
-    acts.insertAdjacentHTML('beforeend', '<li>Добавить местную вытяжку у столов: ' + r0(local) + ' м³/ч без неё не убрать.</li>');
-  }
-  n.textContent = msg;
-  n.className = warn ? 'note warn' : 'note';
-
-  const ci = area > 0 ? r0(supply / area) : 0;
-  acts.insertAdjacentHTML('beforeend', '<li>Приток на м² зала: ' + ci + ' м³/(ч·м²). Если больше 15 — проверить шум и подогрев зимой.</li>');
-  acts.insertAdjacentHTML('beforeend', '<li>Включить ' + r0(supply * 0.0036) + ' м³/с в подбор вентилятора — это единица, в которой продают оборудование.</li>');
+function renderDocs() {
+  $('docs').innerHTML = DOCS.map((d) => `
+    <li><details><summary>${d.n}<br><span class="meta">${d.reg}</span></summary>
+    <div class="body">${d.body}<div class="why">Зачем здесь: ${d.why}</div>
+    <a href="${d.url}" target="_blank" rel="noopener">право-акт на docs.cntd.ru</a></div></details></li>`).join('');
 }
 
-document.querySelectorAll('input').forEach((el) => el.addEventListener('input', calc));
+function calc() {
+  const area = f('area'), h = f('height'), N = Math.max(1, f('hookahs')), seats = f('seats');
+  const ach = f('ach'), perGuest = f('perGuest'), hood = f('hood'), tout = f('tout');
+  const target = parseFloat($('target').value);
+
+  const vol = area * h;
+  const vs = 3;                              // м/с, табл. Л.1 СП 60 для малых вытяжек
+  const supply = Math.max(vol * ach, seats * perGuest);
+  const total = Math.max(supply, N * hood) * 1.05;
+  const perN = total / N;
+  const realAch = vol > 0 ? total / vol : 0;
+
+  const coNeed = (E_HOOKAH * N * 1000) / target;   // м³/ч полного расхода
+  const maxN = (total * target) / (E_HOOKAH * 1000);
+  const coNow = vol > 0 ? (E_HOOKAH * N * 1000) / total : 0;  // мг/м³ при текущем притоке
+  const heat = total * RHO_CP * (20 - tout) / 3600; // кВт
+  const dmm = Math.sqrt((4 * total) / (3600 * Math.PI * vs)) * 1000;
+
+  $('vol').textContent = fmt(vol) + ' м³';
+  $('e1').textContent = '≈ ' + E_HOOKAH + ' г/ч';
+  $('co').textContent = fmt(coNeed) + ' м³/ч';
+  $('coN').textContent = fmt(coNeed / N) + ' м³/ч';
+  $('nmax').textContent = maxN.toFixed(1).replace('.', ',') + ' шт';
+  $('r1').textContent = fmt(vol * ach) + ' м³/ч';
+  $('r2').textContent = fmt(seats * perGuest) + ' м³/ч';
+  $('rt').textContent = fmt(supply) + ' м³/ч';
+  $('r4').textContent = fmt(N * hood) + ' м³/ч';
+  $('r6').textContent = fmt(total) + ' м³/ч';
+  $('r7').textContent = realAch.toFixed(1).replace('.', ',') + ' 1/ч';
+  $('heat').textContent = heat > 0 ? heat.toFixed(1).replace('.', ',') + ' кВт' : 'без подогрева';
+  $('duct').textContent = 'Ø ' + r0(Math.ceil(dmm / 10) * 10) + ' мм, ' + vs + ' м/с';
+
+  $('coN').closest('tr').className = total >= coNeed ? 'sum ok' : 'sum bad';
+
+  const n = $('balance');
+  if (coNow <= target) {
+    n.textContent = 'Баланс проходит: при ' + fmt(total) + ' м³/ч расчётная CO  ' + coNow.toFixed(1).replace('.', ',') + ' мг/м³ против цели ' + target + '.';
+    n.className = 'note'; n.style.borderLeftColor = 'var(--ok)';
+  } else {
+    n.textContent = 'Не проходит: при ' + fmt(total) + ' м³/ч СО выходит ' + r0(coNow).toLocaleString('ru-RU') + ' мг/м³, цель ' + target + '. Нужно ' + fmt(coNeed) + ' м³/ч.';
+    n.className = 'note bad';
+  }
+
+  const adv = [];
+  const add = (k, t, b) => adv.push(`<li class="${k}"><b>${t}</b>${b}</li>`);
+
+  if (coNow > target) {
+    add('bad', 'CO — главное ограничение',
+      'При ' + N + ' кальянах на ' + fmt(total) + ' м³/ч получается ' + r0(coNow).toLocaleString('ru-RU') + ' мг/м³. Чтобы выйти на ' + target + ' мг/м³, нужно ' + fmt(coNeed) + ' м³/ч, или уменьшить до ' + maxN.toFixed(1).replace('.', ',') + ' кальяна. Нормы «м³/ч на кальян» нет — обоснование даёт расчёт по ф. Г.2 СП 60.');
+  } else {
+    add('ok', 'Баланс сходится', 'Расчётная CO ' + coNow.toFixed(1).replace('.', ',') + ' мг/м³ — в цели. Проверить это замером: электрохимический датчик CO, разрешение 0,1 ppm.');
+  }
+
+  if (heat > 60) add('warn', 'Калорифер огромный', 'Нагрев ' + heat.toFixed(1).replace('.', ',') + ' кВт — это счёт за электричество/газ, который заказчик не планировал. Причина чаще всего — фильтр по CO, а не дым. Проверить рекуператор и отдельный локальный отсос над зоной розжига.');
+  else if (heat > 25) add('warn', 'Нагрев значимый', heat.toFixed(1).replace('.', ',') + ' кВт на приток зимой — заложить в смете отдельной строкой.');
+
+  if (N * hood > supply) add('warn', 'Отсосы больше притока', 'Местные отсосы ' + fmt(N * hood) + ' м³/ч превышают приток ' + fmt(supply) + ' м³/ч — вытяжка сдёрнет воздух из кухни или с улицы. Нужен подпор и приток не меньше вытяжки.');
+
+  if (realAch > 12) add('warn', 'Кратность высокая', realAch.toFixed(1).replace('.', ',') + ' 1/ч. Проверить шум в зале и скорость в помещении < 0,7 м/с, иначе будет «дуть» на гостей.');
+
+  add('', 'Подбор воздуховода', 'Магистраль Ø ' + r0(Math.ceil(dmm / 10) * 10) + ' мм при ' + vs + ' м/с — по табл. Л.1 СП 60. Выше 4 м/с на таких расходах слышно в зале, тогда магистраль толще.');
+
+  add('', 'Подача притока', 'Круглые диффузоры сбивают дым струёй: дальнобойность приточной струи на порядок выше вытяжной. Плавные или вытесняющие распределители, приток не в курительную зону.');
+
+  add('', 'На приёмке', 'Расход от проектного — не больше ±8% (СП 73.13330). Приборы в Госреестре СИ со свидетельством о поверке. Паспорт системы — ГОСТ 34060-2017, прил. А.');
+
+  if ($('noise').value === 'quiet') add('warn', 'Тихий зал', 'Для тихого зала ограничения по шуму жёстче: подбор вентилятора и виброопоры, проверка по СП 51.13330 табл. 1, желательно замер на месте.');
+
+  $('advice').innerHTML = adv.join('');
+}
+
+renderDocs();
+document.querySelectorAll('input,select').forEach((el) => el.addEventListener('input', calc));
 calc();

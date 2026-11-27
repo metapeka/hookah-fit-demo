@@ -3,73 +3,98 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Калькулятор подбора приточки кальянной: сколько воздуха, с учётом газа и дыма, и что писать заказчику.">
-<title>Приточка кальянной — калькулятор</title>
+<meta name="description" content="Расчёт вентиляции кальянной по нормативам: приток, вытяжка, CO, калорифер. Со ссылками на документы и советником.">
+<title>Вентиляция кальянной — расчёт и нормы</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 <header class="bar">
-  <div class="brand">Приточка кальянной</div>
-  <div class="sub">демо · расчёт по нормам + газ и дым</div>
+  <div class="brand">Вентиляция кальянной</div>
+  <div class="sub">расчёт по нормам · проверено 28.11.2026</div>
 </header>
 
 <main class="wrap">
+
+<section class="card hero">
+  <p>Нормы «м³/ч на кальян» в РФ нет. Есть требование: воздух в курилке — по ПДК атмосферного воздуха. Считаем по выделению CO и показываем, где проект проходит, а где нет.</p>
+</section>
 
 <section class="card">
   <h2>Помещение</h2>
   <div class="grid">
     <label>Площадь, м²<input id="area" type="number" value="120" min="1"></label>
     <label>Высота, м<input id="height" type="number" value="3" min="2.2" step="0.1"></label>
-    <label>Кальянов одновременно<input id="hookahs" type="number" value="8" min="1"></label>
+    <label>Кальянов одновременно<input id="hookahs" type="number" value="6" min="1"></label>
     <label>Мест (гостей)<input id="seats" type="number" value="40" min="1"></label>
+    <label>Улица зимой, °C<input id="tout" type="number" value="-20" step="1"></label>
+    <label>Город / шумовой режим
+      <select id="noise">
+        <option value="quiet">Кальянная, тихий зал</option>
+        <option value="normal" selected>Ресторан / бар</option>
+      </select>
+    </label>
   </div>
 </section>
 
 <section class="card">
-  <h2>Исходные нормы</h2>
+  <h2>Исходные нормы <span class="tiny">правятся под объект</span></h2>
   <div class="grid">
-    <label>Кратность по СП 118, 1/ч<input id="ach" type="number" value="4" min="1" step="0.5"></label>
+    <label>Кратность общего обмена, 1/ч<input id="ach" type="number" value="4" min="1" step="0.5"></label>
     <label>Свежий воздух на гостя, м³/ч<input id="perGuest" type="number" value="20" min="5" step="5"></label>
-    <label>Вытяжка от одной точки, м³/ч<input id="hood" type="number" value="50" min="20" step="10"></label>
     <label>Расход угля, кг/ч на кальян<input id="coal" type="number" value="0.12" min="0" step="0.01"></label>
+    <label>Местный отсос над столом, м³/ч<input id="hood" type="number" value="200" min="0" step="10"></label>
+    <label>Цель по CO
+      <select id="target">
+        <option value="5" selected>ПДКмр 5 мг/м³ (приказ 32/пр/33)</option>
+        <option value="20">ПДК рабочей зоны 20 мг/м³</option>
+        <option value="30">35 ppm — практика заведений</option>
+      </select>
+    </label>
   </div>
-  <details>
-    <summary>Откуда числа</summary>
-    <p>Кратность 4 по СП 118.13330 для зальных помещений — стартовое значение, финальную кратность задаёт проектировщик по согласованию с СЭС-требованиями заведения. Свежий воздух 20 м³/ч на гостя — санитарный минимум по СанПиН 2.1.3684-21. Вытяжка от точки курения 50 м³/ч — ориентир на решётку у стола. Все значения правятся под объект.</p>
-  </details>
 </section>
 
 <section class="card">
-  <h2>Результат</h2>
+  <h2>Расчёт по CO</h2>
   <table class="res">
+    <tr><td>Объём помещения</td><td id="vol"></td></tr>
+    <tr><td>CO от одного кальяна</td><td id="e1"></td></tr>
+    <tr><td>Нужный полный расход по CO</td><td id="co"></td></tr>
+    <tr class="sum"><td>Расход на кальян</td><td id="coN"></td></tr>
+    <tr><td>Максимум кальянов при этом расходе</td><td id="nmax"></td></tr>
     <tr><td>Приток по площади и кратности</td><td id="r1"></td></tr>
     <tr><td>Приток по гостям</td><td id="r2"></td></tr>
-    <tr><td>Вредности от кальянов</td><td id="r3"></td></tr>
     <tr class="sum"><td>Нужный приток</td><td id="rt"></td></tr>
-    <tr><td>Вытяжка локальная</td><td id="r4"></td></tr>
-    <tr><td>Вытяжка общая</td><td id="r5"></td></tr>
+    <tr><td>Местные отсосы</td><td id="r4"></td></tr>
     <tr class="sum"><td>Нужная вытяжка</td><td id="r6"></td></tr>
-    <tr><td>Воздухообмен помещения</td><td id="r7"></td></tr>
+    <tr><td>Фактическая кратность</td><td id="r7"></td></tr>
+    <tr><td>Нагрев притока зимой</td><td id="heat"></td></tr>
+    <tr><td>Магистраль, Ø воздуховода</td><td id="duct"></td></tr>
   </table>
   <p class="note" id="balance"></p>
 </section>
 
 <section class="card">
-  <h2>Что писать заказчику</h2>
-  <ul id="actions" class="acts"></ul>
+  <h2>Советник</h2>
+  <ul id="advice" class="advice"></ul>
+</section>
+
+<section class="card">
+  <h2>Документы</h2>
+  <p class="tiny">Клик раскрывает ссылку и пункт. Статус проверен 28.11.2026.</p>
+  <ul class="docs" id="docs"></ul>
 </section>
 
 <section class="card">
   <h2>Чем помочь могу я</h2>
   <ul class="asks">
-    <li><b>Собрать нормы по объекту.</b> Приложу актуальные СП/СанПиН ссылкой, а не «так принято».</li>
-    <li><b>Разложить смету.</b> Оборудование, воздуховоды, монтаж — таблицей с суммами и видно, где застряло.</li>
-    <li><b>Сделать такой калькулятор под ваши типовые объекты.</b> Один файл, открывается без интернета.</li>
-    <li><b>Держать журнал объекта.</b> Что сдано, что висит, кто должен, срок — обновляю сам.</li>
+    <li><b>Собрать нормы по объекту.</b> Приложу актуальные СП/СанПиН ссылкой и номером пункта.</li>
+    <li><b>Разложить смету.</b> Оборудование, воздуховоды, монтаж — таблица с суммами.</li>
+    <li><b>Сделать такой калькулятор под ваши типовые объекты.</b> Один файл, без интернета.</li>
+    <li><b>Держать журнал объекта.</b> Что сдано, что висит, кто должен, срок.</li>
   </ul>
 </section>
 
-<p class="foot">Черновик. Числа в нём — стартовые, не замена проекту. Расчёт под вашу практику поменяю за вечер.</p>
+<p class="foot">Нормы разовые, проверены 28.11.2026. CO от кальяна — лабораторная оценка (Daher 2010), реальные значения зависят от угля и чаши. Не замена проекту.</p>
 </main>
 <script src="assets/calc.js"></script>
 </body>
